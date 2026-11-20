@@ -384,6 +384,30 @@ test('ackTimeoutMs and ackSignal bound the ack wait; errors say the frame was se
   }
 });
 
+test('a frame with no ack is closed with a reset; an acked one is not', async () => {
+  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
+  const opts = {
+    host: '127.0.0.1',
+    port: cam.port,
+    password: 'x',
+    commandId: PTZ.COMMAND_ID,
+    bodyTail: ptzFrameTail(PTZ.UP),
+    rsaKey: KEY_PEM,
+    timeoutMs: 5000,
+  };
+  try {
+    await assert.rejects(control({ ...opts, ackTimeoutMs: 150 }), { code: 'timeout', frameSent: true });
+    // A lost frame is then dropped, not retransmitted after the caller moved on.
+    await waitFor(() => cam.resets === 1);
+    await control(opts);
+    // Give a stray reset time to arrive before checking there was none.
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(cam.resets, 1, 'the acked frame and the logins close normally');
+  } finally {
+    await cam.stop();
+  }
+});
+
 test('a control socket that never connects reports frameSent false', async () => {
   let n = 0;
   const connect = (o) => {

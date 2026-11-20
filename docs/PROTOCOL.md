@@ -155,7 +155,15 @@ A complete left-start control frame, with the fake session from
    the stop whether or not the ack came. Do not send the stop before the start
    frame has been written. `move()` does this with `control()`'s
    `onFrameSent`, `ackTimeoutMs` and `ackSignal` options, and reports
-   `startAcked: false` when the ack did not come in time.
+   `startAcked: false` when the ack did not come in time. Time this with a
+   monotonic clock (`performance.now()`), not the wall clock, or a clock
+   step during the move stretches it.
+   "Written" means handed to the kernel. Start and stop go out on separate
+   connections, so if the start's packet is lost, TCP resends it about 200 ms
+   or more later, and the stop (a fresh login, a few milliseconds on a LAN)
+   can arrive first. The late start would then turn the motor with no stop
+   after it. `control()` therefore closes a socket whose frame got no ack
+   with a TCP reset, which drops any pending retransmission.
 3. The motor then runs for at most the requested time plus the time the stop
    takes to reach the camera: one login and one frame, usually tens of
    milliseconds on a LAN. A stop attempt that fails adds its own timeouts and

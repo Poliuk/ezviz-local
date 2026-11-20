@@ -52,16 +52,29 @@ function frameReader(onFrame) {
  * options.onControl(cmd, n) return 'ack' (default), 'close', 'silent', or a
  *                          number of ms to delay the ack by, for the n-th
  *                          control frame (0-based)
+ *
+ * .resets counts connections the client closed with a TCP reset.
  */
 async function fakeCommandPort(options = {}) {
   const sockets = [];
   const events = []; // { type: 'login'|'control', command?, speed?, channel?, at }
   let controls = 0;
   let connections = 0;
+  let resets = 0;
+  const timers = new Set();
+  const later = (fn, ms) => {
+    const t = setTimeout(() => {
+      timers.delete(t);
+      fn();
+    }, ms);
+    timers.add(t);
+  };
   const server = net.createServer((sock) => {
     sockets.push(sock);
     connections += 1;
-    sock.on('error', () => {});
+    sock.on('error', (err) => {
+      if (err.code === 'ECONNRESET') resets += 1;
+    });
     let challenge;
     sock.on(
       'data',
@@ -95,11 +108,15 @@ async function fakeCommandPort(options = {}) {
           const action = options.onControl ? options.onControl(ev.command, n) : 'ack';
           if (action === 'close') sock.destroy();
           else if (typeof action === 'number') {
-            setTimeout(() => {
+            later(() => {
               if (!sock.destroyed) sock.write(ACK);
             }, action);
           }
-          else if (action === 'ack' && options.ackDelayMs) setTimeout(() => sock.write(ACK), options.ackDelayMs);
+          else if (action === 'ack' && options.ackDelayMs) {
+            later(() => {
+              if (!sock.destroyed) sock.write(ACK);
+            }, options.ackDelayMs);
+          }
           else if (action === 'ack') sock.write(ACK);
         }
       }),
@@ -113,7 +130,14 @@ async function fakeCommandPort(options = {}) {
     get connections() {
       return connections;
     },
-    stop: stopper(server, sockets),
+    get resets() {
+      return resets;
+    },
+    stop: async () => {
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
+      await stopper(server, sockets)();
+    },
   };
 }
 

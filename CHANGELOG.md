@@ -11,6 +11,11 @@
 - `control()`: new `onFrameSent`, `ackTimeoutMs` and `ackSignal` options, and
   `err.frameSent` on errors from the control socket.
 - CLI: `move` says when the camera did not acknowledge the start.
+- `move()` and `control()` time their deadlines with the monotonic clock, so
+  a wall-clock step during a move no longer stretches it.
+- `control()` closes a socket whose frame was written but got no ack with a
+  TCP reset, so a start packet lost on the network is not retransmitted after
+  the stop.
 
 ## 0.1.0
 

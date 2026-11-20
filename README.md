@@ -99,7 +99,9 @@ ack:
   cuts the login or the write short.
 
 When the ack wait ends early the call rejects with `timeout` or `aborted`, and
-`err.frameSent` is `true`: the frame is on its way, so send the stop. A
+`err.frameSent` is `true`: the frame is on its way, so send the stop. The
+socket is then closed with a TCP reset, so a frame lost on the network is not
+retransmitted after your stop. A
 `control`-phase error with `err.frameSent === false` means the frame was never
 written.
 

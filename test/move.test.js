@@ -175,6 +175,39 @@ test('a start ack that never comes: stop at durationMs, reported unacknowledged'
   }
 });
 
+test('a wall-clock step back during the move does not stretch it', async () => {
+  const realNow = Date.now;
+  const cam = await fakeCommandPort({
+    onControl: (cmd, n) => {
+      if (n === 0) setTimeout(() => (Date.now = () => realNow() - 5000), 20);
+      return n === 0 ? 100 : 'ack';
+    },
+  });
+  try {
+    const t0 = performance.now();
+    const res = await move(base(cam.port, { direction: 'left', durationMs: 300 }));
+    const took = performance.now() - t0;
+    assert.equal(res.ok, true);
+    assert.ok(took < 1500, `move took ${Math.round(took)} ms`);
+    assert.ok(res.durationMs >= 290 && res.durationMs < 1500, `durationMs ${res.durationMs}`);
+    assert.deepEqual(cam.commands(), [23, -24]);
+  } finally {
+    Date.now = realNow;
+    await cam.stop();
+  }
+});
+
+test('a start ack that never comes is reset, so a lost start is not resent', async () => {
+  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
+  try {
+    const res = await move(base(cam.port, { direction: 'up', durationMs: 200 }));
+    assert.equal(res.startAcked, false);
+    assert.equal(cam.resets, 1, 'only the start socket is reset');
+  } finally {
+    await cam.stop();
+  }
+});
+
 test('a missing start ack with timeoutMs below durationMs still runs the full duration', async () => {
   const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
   try {
