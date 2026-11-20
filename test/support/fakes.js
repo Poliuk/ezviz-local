@@ -49,8 +49,9 @@ function frameReader(onFrame) {
  * it works with any client key.
  *
  * options.authFail        answer every login with an all-zero session id
- * options.onControl(cmd, n) return 'ack' (default), 'close' or 'silent'
- *                          for the n-th control frame (0-based)
+ * options.onControl(cmd, n) return 'ack' (default), 'close', 'silent', or a
+ *                          number of ms to delay the ack by, for the n-th
+ *                          control frame (0-based)
  */
 async function fakeCommandPort(options = {}) {
   const sockets = [];
@@ -93,6 +94,11 @@ async function fakeCommandPort(options = {}) {
           controls += 1;
           const action = options.onControl ? options.onControl(ev.command, n) : 'ack';
           if (action === 'close') sock.destroy();
+          else if (typeof action === 'number') {
+            setTimeout(() => {
+              if (!sock.destroyed) sock.write(ACK);
+            }, action);
+          }
           else if (action === 'ack' && options.ackDelayMs) setTimeout(() => sock.write(ACK), options.ackDelayMs);
           else if (action === 'ack') sock.write(ACK);
         }

@@ -65,7 +65,10 @@ async function main() {
   // Pan right for 800 ms. move() sends the stop whenever the start may have
   // reached the camera, tries it up to three times, and rejects with
   // stop_failed if none is acknowledged. speed is 1 to 7; only 4 is tested.
-  await move({ ...camera, direction: 'right', durationMs: 800, speed: 4 });
+  // The 800 ms count from when the start frame is written, not from its ack,
+  // so a slow ack cannot stretch the move. startAcked is false if the ack
+  // did not come in that time.
+  const { durationMs, startAcked } = await move({ ...camera, direction: 'right', durationMs: 800, speed: 4 });
 
   // Lower level: one authenticated frame each. Start, then stop, yourself.
   const frame = (command) => ({ ...camera, commandId: PTZ.COMMAND_ID, bodyTail: ptzFrameTail(command) });
@@ -84,6 +87,21 @@ Errors are `EzvizLanError` with a `code` (`timeout`, `auth_failed`,
 `ECONNREFUSED`, ...). If you use `control()` to start a move, send the stop
 from a `finally` and cap the run time: a start with no stop drives the motor
 into its end stop.
+
+`control()` also takes three options for code that must not block on a slow
+ack:
+
+- `onFrameSent()`: called right after the control frame has been written,
+  before the ack is read. Start your run-time timer here.
+- `ackTimeoutMs`: how long to wait for the ack after the write (default
+  `timeoutMs`).
+- `ackSignal`: an `AbortSignal` that ends the wait for the ack early. It never
+  cuts the login or the write short.
+
+When the ack wait ends early the call rejects with `timeout` or `aborted`, and
+`err.frameSent` is `true`: the frame is on its way, so send the stop. A
+`control`-phase error with `err.frameSent === false` means the frame was never
+written.
 
 ## Video and talking in a browser
 

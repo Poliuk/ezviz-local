@@ -17,6 +17,7 @@ const crypto = require('node:crypto');
 
 const { control, ptzFrameTail, PTZ, EzvizLanError } = require('../lib');
 const P = require('../lib/protocol');
+const { fakeCommandPort, closedPort } = require('./support/fakes');
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 const fixtures = fs
@@ -320,6 +321,87 @@ test('timeout on the control socket when no ack arrives', async () => {
   }
 });
 
+test('onFrameSent runs after the write and before the ack', async () => {
+  const cam = await fakeCommandPort({ onControl: () => 300 });
+  try {
+    const order = [];
+    const t0 = Date.now();
+    const res = await control({
+      host: '127.0.0.1',
+      port: cam.port,
+      password: 'x',
+      commandId: PTZ.COMMAND_ID,
+      bodyTail: ptzFrameTail(PTZ.UP),
+      rsaKey: KEY_PEM,
+      onFrameSent: () => order.push(['sent', Date.now() - t0]),
+    });
+    order.push(['acked', Date.now() - t0]);
+    assert.deepEqual(res.ack, ACK);
+    assert.deepEqual(order.map((o) => o[0]), ['sent', 'acked']);
+    assert.ok(order[1][1] - order[0][1] >= 250, 'onFrameSent did not wait for the ack');
+  } finally {
+    await cam.stop();
+  }
+});
+
+test('ackTimeoutMs and ackSignal bound the ack wait; errors say the frame was sent', async () => {
+  const cam = await fakeCommandPort({ onControl: () => 'silent' });
+  const opts = {
+    host: '127.0.0.1',
+    port: cam.port,
+    password: 'x',
+    commandId: PTZ.COMMAND_ID,
+    bodyTail: ptzFrameTail(PTZ.UP),
+    rsaKey: KEY_PEM,
+    timeoutMs: 5000,
+  };
+  try {
+    let t0 = Date.now();
+    await assert.rejects(control({ ...opts, ackTimeoutMs: 150 }), {
+      code: 'timeout',
+      phase: 'control',
+      frameSent: true,
+    });
+    assert.ok(Date.now() - t0 < 2000);
+
+    const ac = new AbortController();
+    t0 = Date.now();
+    await assert.rejects(control({ ...opts, ackSignal: ac.signal, onFrameSent: () => setTimeout(() => ac.abort(), 50) }), {
+      code: 'aborted',
+      phase: 'control',
+      frameSent: true,
+    });
+    assert.ok(Date.now() - t0 < 2000);
+
+    // Aborted before the call: the login and the frame still go out.
+    const early = new AbortController();
+    early.abort();
+    await assert.rejects(control({ ...opts, ackSignal: early.signal }), { code: 'aborted', frameSent: true });
+    // Closing the socket right after the write still delivers the frame.
+    await waitFor(() => cam.commands().length === 3);
+  } finally {
+    await cam.stop();
+  }
+});
+
+test('a control socket that never connects reports frameSent false', async () => {
+  let n = 0;
+  const connect = (o) => {
+    n += 1;
+    return net.connect(n === 1 ? o : { host: '127.0.0.1', port: refused });
+  };
+  const refused = await closedPort();
+  const cam = await fakeCommandPort();
+  try {
+    await assert.rejects(
+      control({ host: '127.0.0.1', port: cam.port, password: 'x', commandId: 1, rsaKey: KEY_PEM, connect }),
+      { code: 'ECONNREFUSED', phase: 'control', frameSent: false },
+    );
+  } finally {
+    await cam.stop();
+  }
+});
+
 test('ECONNREFUSED is passed through', async () => {
   const srv = net.createServer();
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
@@ -407,6 +489,10 @@ test('argument validation', async () => {
   // setTimeout fires at once above 2^31-1 ms, so large timeouts are refused.
   await assert.rejects(control({ ...base, timeoutMs: 2 ** 31 }), { code: 'invalid_argument' });
   await assert.rejects(control({ ...base, timeoutMs: 60001 }), { code: 'invalid_argument' });
+  await assert.rejects(control({ ...base, ackTimeoutMs: 0 }), { code: 'invalid_argument' });
+  await assert.rejects(control({ ...base, ackTimeoutMs: 60001 }), { code: 'invalid_argument' });
+  await assert.rejects(control({ ...base, onFrameSent: 'nope' }), { code: 'invalid_argument' });
+  await assert.rejects(control({ ...base, ackSignal: {} }), { code: 'invalid_argument' });
   const small = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey;
   await assert.rejects(control({ ...base, rsaKey: small }), { code: 'invalid_argument' });
 });

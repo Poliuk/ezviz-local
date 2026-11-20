@@ -198,6 +198,13 @@ test('an interrupted move reports it and exits 130', async () => {
   assert.match(t.stdout.text, /\(interrupted\)/);
 });
 
+test('an unacknowledged start is mentioned', async () => {
+  const api = { move: async () => ({ ok: true, durationMs: 500, startAcked: false }) };
+  const t = io({ env: { EZVIZ_PASSWORD: 'x' }, api });
+  assert.equal(await main(['move', '192.0.2.10', 'up'], t.io), 0);
+  assert.match(t.stdout.text, /Stop acknowledged\. The camera did not acknowledge the start\./);
+});
+
 test('a failed stop is reported loudly', async () => {
   const api = {
     move: async () => {
@@ -280,6 +287,7 @@ test('bin: move against a fake command port', async () => {
     const out = JSON.parse(r.stdout);
     assert.equal(out.ok, true);
     assert.equal(out.direction, 'right');
+    assert.equal(out.startAcked, true);
     assert.deepEqual(cam.commands(), [24, -25]);
   } finally {
     await cam.stop();

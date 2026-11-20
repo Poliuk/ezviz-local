@@ -148,12 +148,25 @@ A complete left-start control frame, with the fake session from
    camera, including when the wait is interrupted or the start failed after
    login. It tries the stop up to three times and rejects if none is
    acknowledged.
-2. An ack is not movement. Check the picture.
-3. Do not scan the command id space. It is large and sparse, ids follow no
+2. Count the run time from the moment the start frame is written, not from its
+   ack, and never wait for the start's ack past that deadline. The ack can be
+   slow or lost while the motor is already turning; waiting for it with a
+   5 s socket timeout turns a 0.5 s move into a 5 s one. At the deadline, send
+   the stop whether or not the ack came. Do not send the stop before the start
+   frame has been written. `move()` does this with `control()`'s
+   `onFrameSent`, `ackTimeoutMs` and `ackSignal` options, and reports
+   `startAcked: false` when the ack did not come in time.
+3. The motor then runs for at most the requested time plus the time the stop
+   takes to reach the camera: one login and one frame, usually tens of
+   milliseconds on a LAN. A stop attempt that fails adds its own timeouts and
+   a 200 ms pause before the retry. Each frame logs in afresh; we have not
+   tried sending the stop on the start's session, so we do not rely on it.
+4. An ack is not movement. Check the picture.
+5. Do not scan the command id space. It is large and sparse, ids follow no
    formula we know of, and some nearby ids return device configuration,
    including Wi-Fi credentials. Every unknown id is an unknown write to the
    camera.
-4. Presets use a different command id that we have not captured.
+6. Presets use a different command id that we have not captured.
 
 ## RTSP and two-way audio
 

@@ -28,6 +28,7 @@ test('sends the start, waits, then sends the matching stop', async () => {
   try {
     const res = await move(base(cam.port, { direction: 'left', durationMs: 300, speed: 6 }));
     assert.equal(res.ok, true);
+    assert.equal(res.startAcked, true);
     assert.equal(res.interrupted, undefined);
     assert.ok(res.durationMs >= 290 && res.durationMs < 1500, `durationMs ${res.durationMs}`);
     assert.deepEqual(cam.commands(), [PTZ.LEFT, PTZ.stopOf(PTZ.LEFT)]);
@@ -137,17 +138,95 @@ test('a start that fails after login is followed by a stop', async () => {
   }
 });
 
-test('a start that times out waiting for the ack is followed by a stop', async () => {
-  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
+// Time from the start frame reaching the camera to the stop reaching it.
+const runTime = (cam) => {
+  const ctl = cam.events.filter((e) => e.type === 'control');
+  return ctl[1].at - ctl[0].at;
+};
+
+test('a late start ack does not delay the stop past durationMs', async () => {
+  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 2000 : 'ack') });
   try {
-    await assert.rejects(move(base(cam.port, { direction: 'up', durationMs: 1000, timeoutMs: 200 })), {
-      code: 'timeout',
-      phase: 'control',
-      stopSent: true,
-    });
-    assert.deepEqual(cam.commands(), [21, -22]);
+    const t0 = Date.now();
+    const res = await move(base(cam.port, { direction: 'left', durationMs: 300, timeoutMs: 5000 }));
+    assert.equal(res.ok, true);
+    assert.equal(res.startAcked, false);
+    assert.equal(res.interrupted, undefined);
+    assert.deepEqual(cam.commands(), [23, -24]);
+    const run = runTime(cam);
+    assert.ok(run >= 290 && run < 900, `stop reached the camera ${run} ms after the start`);
+    assert.ok(Date.now() - t0 < 1500, 'did not wait for the ack');
   } finally {
     await cam.stop();
+  }
+});
+
+test('a start ack that never comes: stop at durationMs, reported unacknowledged', async () => {
+  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
+  try {
+    const res = await move(base(cam.port, { direction: 'up', durationMs: 300, timeoutMs: 5000 }));
+    assert.equal(res.ok, true);
+    assert.equal(res.startAcked, false);
+    assert.deepEqual(cam.commands(), [21, -22]);
+    const run = runTime(cam);
+    assert.ok(run >= 290 && run < 900, `stop reached the camera ${run} ms after the start`);
+  } finally {
+    await cam.stop();
+  }
+});
+
+test('a missing start ack with timeoutMs below durationMs still runs the full duration', async () => {
+  const cam = await fakeCommandPort({ onControl: (cmd, n) => (n === 0 ? 'silent' : 'ack') });
+  try {
+    const res = await move(base(cam.port, { direction: 'up', durationMs: 600, timeoutMs: 200 }));
+    assert.equal(res.ok, true);
+    assert.equal(res.startAcked, false);
+    const run = runTime(cam);
+    assert.ok(run >= 590 && run < 1200, `stop reached the camera ${run} ms after the start`);
+  } finally {
+    await cam.stop();
+  }
+});
+
+test('an abort while waiting for the start ack stops the camera at once', async () => {
+  const ac = new AbortController();
+  const cam = await fakeCommandPort({
+    onControl: (cmd, n) => {
+      if (n !== 0) return 'ack';
+      setTimeout(() => ac.abort(), 100); // the start frame has arrived
+      return 'silent';
+    },
+  });
+  try {
+    const t0 = Date.now();
+    const res = await move(base(cam.port, { direction: 'right', durationMs: 8000, signal: ac.signal }));
+    assert.equal(res.ok, true);
+    assert.equal(res.interrupted, true);
+    assert.equal(res.startAcked, false);
+    assert.deepEqual(cam.commands(), [24, -25]);
+    const run = runTime(cam);
+    assert.ok(run >= 90 && run < 700, `stop reached the camera ${run} ms after the start`);
+    assert.ok(Date.now() - t0 < 2000);
+  } finally {
+    await cam.stop();
+  }
+});
+
+test('a start that fails at login is never followed by a stop', async () => {
+  // The camera never answers the login: nothing was sent, nothing can move.
+  const net = require('node:net');
+  const sockets = [];
+  const srv = net.createServer((s) => sockets.push(s));
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  try {
+    await assert.rejects(move(base(srv.address().port, { direction: 'up', durationMs: 100, timeoutMs: 200 })), {
+      code: 'timeout',
+      phase: 'login',
+    });
+    assert.equal(sockets.length, 1, 'only the start login connected');
+  } finally {
+    for (const s of sockets) s.destroy();
+    await new Promise((r) => srv.close(r));
   }
 });
 

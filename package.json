@@ -1,6 +1,6 @@
 {
   "name": "ezviz-local",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Control an EZVIZ camera on your own network with no cloud: pan and tilt over the command port, and check RTSP and two-way audio support.",
   "license": "Apache-2.0",
   "repository": {
@@ -19,6 +19,7 @@
     "lib/",
     "bin/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE"
   ],
