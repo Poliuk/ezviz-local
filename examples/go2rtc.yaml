@@ -1,0 +1,73 @@
+# go2rtc configuration for an EZVIZ camera (tested with go2rtc v1.9.9 and a C6N).
+#
+#   cp examples/go2rtc.yaml go2rtc.yaml
+#   chmod 600 go2rtc.yaml     # it will contain the camera password
+#
+# Replace 192.0.2.10 with your camera's LAN address and CAMERA_PASSWORD with
+# its verification code (the 6 letters on the sticker; see docs/CAMERA-SETUP.md).
+# If the code has characters that are special in a URL, percent-encode them.
+# Never commit the filled-in file.
+#
+# Read docs/GO2RTC-PITFALLS.md before exposing anything built on this.
+
+# The HTTP API and WebSocket signalling. go2rtc does not authenticate clients
+# on loopback: anyone who reaches this port can watch the camera, read this
+# file back through /api/config (password included) and add streams. Keep it
+# on loopback and put your own authenticated server in front (examples/minimal
+# does that). Loopback alone does not stop a web page opened in a browser on
+# this same machine (DNS rebinding); see docs/GO2RTC-PITFALLS.md, item 1.
+api:
+  listen: "127.0.0.1:1984"
+  origin: ""          # no CORS
+
+# go2rtc's own RTSP server. Its default is ":8554", every interface, no
+# password, and it re-serves every stream below, including `talk`: anyone on
+# your network could open rtsp://<this-machine>:8554/talk and speak through
+# the camera. Keep it on loopback.
+#
+# Why have it at all: the camera sends AAC audio, which WebRTC cannot carry.
+# The "ffmpeg:camera#audio=opus" source below makes go2rtc run ffmpeg against
+# rtsp://127.0.0.1:8554/camera and add an Opus track. That needs this server
+# on 127.0.0.1 (not [::1]) and ffmpeg installed. If you do not want sound in
+# the browser, `listen: ""` turns the server off.
+rtsp:
+  listen: "127.0.0.1:8554"
+
+streams:
+  # Watching. "#backchannel=0" matters: go2rtc v1.9.9 asks the camera for its
+  # audio backchannel by default, and then any WebRTC viewer whose offer sends
+  # audio is wired to the camera's speaker.
+  camera:
+    - rtsp://admin:CAMERA_PASSWORD@192.0.2.10:554/Streaming/Channels/101#backchannel=0
+    - "ffmpeg:camera#audio=opus"
+
+  # Lower resolution, for slow links. Also no backchannel.
+  camera_sub:
+    - rtsp://admin:CAMERA_PASSWORD@192.0.2.10:554/Streaming/Channels/102#backchannel=0
+
+  # Push-to-talk, off until you uncomment it. The same camera with the ONVIF
+  # backchannel requested (DESCRIBE carries
+  # "Require: www.onvif.org/ver20/backchannel"). Browsers send PCMU to it;
+  # go2rtc passes it to the camera untouched. Anything that can reach go2rtc
+  # can speak into the room through this stream, so only a client that is
+  # allowed to talk should ever be connected to it.
+  # talk:
+  #   - rtsp://admin:CAMERA_PASSWORD@192.0.2.10:554/Streaming/Channels/101#backchannel=1
+
+# WebRTC media goes directly between the browser and this port; only the
+# signalling passes through your server. Open it on the LAN only.
+webrtc:
+  listen: ":8555"
+  # go2rtc finds this machine's addresses by itself. If browsers cannot
+  # connect, name the LAN address explicitly (this machine, not the camera):
+  # candidates:
+  #   - 192.0.2.20:8555
+  #   - 192.0.2.20:8555/tcp
+  # No STUN or TURN: on a LAN they add nothing and tell a third party about
+  # every connection.
+  ice_servers: []
+
+# At debug or trace level go2rtc prints stream URLs, which contain the
+# password.
+log:
+  level: warn

@@ -1,0 +1,17 @@
+{
+  "name": "ezviz-local-minimal-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A small web page to watch, move and talk through an EZVIZ camera, using ezviz-local and go2rtc.",
+  "license": "Apache-2.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

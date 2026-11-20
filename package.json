@@ -1,0 +1,41 @@
+{
+  "name": "ezviz-local",
+  "version": "0.1.0",
+  "description": "Control an EZVIZ camera on your own network with no cloud: pan and tilt over the command port, and check RTSP and two-way audio support.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Poliuk/ezviz-local.git"
+  },
+  "homepage": "https://github.com/Poliuk/ezviz-local#readme",
+  "bugs": {
+    "url": "https://github.com/Poliuk/ezviz-local/issues"
+  },
+  "main": "lib/index.js",
+  "bin": {
+    "ezviz-local": "bin/ezviz-local"
+  },
+  "files": [
+    "lib/",
+    "bin/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "ezviz",
+    "ptz",
+    "rtsp",
+    "onvif",
+    "backchannel",
+    "camera",
+    "lan",
+    "go2rtc"
+  ]
+}

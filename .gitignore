@@ -1,0 +1,11 @@
+node_modules/
+npm-debug.log*
+*.tgz
+.DS_Store
+
+# Filled-in configs hold the camera password.
+.env
+.env.*
+go2rtc.yaml
+!examples/go2rtc.yaml
+*.local.yaml

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camera</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0 auto; max-width: 960px; padding: 16px; }
+    video { width: 100%; background: #000; aspect-ratio: 16 / 9; display: block; }
+    .bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 12px 0; }
+    #status { font-size: 0.9em; opacity: 0.8; }
+    #pad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 4px; }
+    #pad [data-dir="up"] { grid-column: 2; grid-row: 1; }
+    #pad [data-dir="left"] { grid-column: 1; grid-row: 2; }
+    #pad [data-dir="right"] { grid-column: 3; grid-row: 2; }
+    #pad [data-dir="down"] { grid-column: 2; grid-row: 3; }
+    button { font: inherit; padding: 8px 12px; touch-action: none; user-select: none; -webkit-user-select: none; }
+    button.on { outline: 3px solid #d33; }
+    #talk { min-width: 140px; min-height: 56px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline muted></video>
+  <div class="bar">
+    <button id="sound" type="button">Sound on</button>
+    <span id="status">Connecting…</span>
+  </div>
+  <div class="bar">
+    <div id="pad" hidden aria-label="Move the camera (hold)">
+      <button type="button" data-dir="up" aria-label="Up">▲</button>
+      <button type="button" data-dir="left" aria-label="Left">◀</button>
+      <button type="button" data-dir="right" aria-label="Right">▶</button>
+      <button type="button" data-dir="down" aria-label="Down">▼</button>
+    </div>
+    <button id="talk" type="button" hidden>Hold to talk</button>
+  </div>
+  <p id="note" role="status"></p>
+  <script src="/app.js"></script>
+</body>
+</html>

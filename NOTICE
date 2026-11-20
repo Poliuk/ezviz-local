@@ -1,0 +1,75 @@
+ezviz-local
+Copyright 2026 The ezviz-local contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+pyEzvizApi
+------------------------------------------------------------------------------
+
+lib/protocol.js and lib/control.js are a JavaScript port of parts of
+pyezvizapi 2.5.1 by Renier Moorcroft, https://github.com/RenierM26/pyEzvizApi,
+licensed under the Apache License, Version 2.0,
+http://www.apache.org/licenses/LICENSE-2.0. pyezvizapi 2.5.1 ships no NOTICE
+file.
+
+The port is a modified, partial work. It was rewritten in JavaScript and kept
+to one code path (log in, then send one control frame).
+
+Ported, from pyezvizapi/streaming/local/hcnetsdk/:
+
+  requests.py       hcnetsdk_command_port_execute_template,
+                    read_hcnetsdk_tcp_frame (including the short-ack rule),
+                    _hcnetsdk_command_port_username,
+                    _hcnetsdk_command_port_md5_hmac,
+                    hcnetsdk_command_port_public_key_der,
+                    hcnetsdk_command_port_rsa_key
+  api.py            HcNetSdkCommandPortClient.login (handshake order) and the
+                    constants it uses (login family and header word, login
+                    seed prefix and suffix, username length, RSA size,
+                    password-seed and proof lengths, default user "admin")
+  authentication.py hcnetsdk_command_port_login_request_frame,
+                    hcnetsdk_command_port_password_digest,
+                    hcnetsdk_command_port_login_proof,
+                    hcnetsdk_command_port_login_proof_frame,
+                    decode_hcnetsdk_command_port_login_challenge,
+                    _hcnetsdk_command_port_login_prefix
+  discovery.py      parse_hcnetsdk_command_port_login_session,
+                    parse_hcnetsdk_tcp_frame_header
+  protocol_types/wire_crypto.py
+                    hcnetsdk_command_port_auth_word, the four-round AES-128
+                    variant and its helpers, _hcnetsdk_command_port_auth_mask,
+                    _hcnetsdk_command_port_local_ip_word
+  protocol_types/framing.py
+                    build_hcnetsdk_tcp_frame,
+                    hcnetsdk_command_port_control_frame,
+                    HcNetSdkCommandPortControlTemplate.to_frame
+
+Changes from the original:
+
+  - RSA PKCS#1 v1.5 decryption is done with BigInt instead of PyCryptodome
+    (the block must start 00 02, have at least eight non-zero padding bytes,
+    then 00).
+  - The AES S-box is computed at load time instead of tabled.
+  - Each connect, write and frame read has its own timeout, and a declared
+    frame longer than 64 KiB is rejected.
+  - Not ported: the login-candidate fallbacks, port 8443/TLS login, the
+    control-template addend, addend_delta, mask_seed and body-tail
+    transforms, media streaming, STDXML/ISAPI and config reads.
+
+The test fixtures in test/fixtures/ were recorded by running pyezvizapi 2.5.1
+against a fake camera on 127.0.0.1 with a fake password, a fake serial number
+and a throwaway RSA key.
+
+Not from pyezvizapi: the PTZ command id and body layout (ptzFrameTail and PTZ
+in lib/control.js), lib/move.js, lib/probe.js, lib/rtsp.js and lib/cli.js.
+The PTZ values come from our own observation of a camera we own; see
+docs/PROTOCOL.md. Nothing in this package comes from vendor SDK binaries,
+headers or decompiled code.
+
+------------------------------------------------------------------------------
+Trademarks
+------------------------------------------------------------------------------
+
+EZVIZ and Hikvision are trademarks of their respective owners. This project is
+not affiliated with, endorsed by or sponsored by EZVIZ or Hikvision.
