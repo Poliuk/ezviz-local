@@ -105,6 +105,24 @@ retransmitted after your stop. A
 `control`-phase error with `err.frameSent === false` means the frame was never
 written.
 
+## Cloud: feature switches
+
+One thing an EZVIZ C6N will not do on the LAN is toggle its *feature switches* —
+privacy, the status LED, sleep, infrared. Those go through EZVIZ's cloud, so the
+`cloud` module is the one part of this package that uses your EZVIZ account
+rather than the local network.
+
+```js
+const { cloud } = require('ezviz-local');
+
+const session = await cloud.cloudLogin({ account: 'you@example.com', password: process.env.EZVIZ_ACCOUNT_PASSWORD });
+await cloud.setSwitch({ session, serial: 'YOURSERIAL', type: 'PRIVACY', enable: true });
+```
+
+It needs the EZVIZ **account** password (not the camera's verification code),
+and it changes the camera over the internet. It is not verified against real
+hardware yet — see [docs/CLOUD.md](docs/CLOUD.md).
+
 ## Video and talking in a browser
 
 The library does not stream. For that we use
@@ -126,6 +144,7 @@ yourself reach it.
 - [PROTOCOL.md](docs/PROTOCOL.md): the command-port login and the PTZ frame
 - [TALKBACK.md](docs/TALKBACK.md): the ONVIF backchannel, and how go2rtc uses it
 - [GO2RTC-PITFALLS.md](docs/GO2RTC-PITFALLS.md): putting go2rtc behind your own auth
+- [CLOUD.md](docs/CLOUD.md): toggling feature switches (privacy, LED, sleep, IR) through the EZVIZ account
 
 ## Credits
 

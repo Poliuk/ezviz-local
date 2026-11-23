@@ -67,6 +67,14 @@ The PTZ values come from our own observation of a camera we own; see
 docs/PROTOCOL.md. Nothing in this package comes from vendor SDK binaries,
 headers or decompiled code.
 
+lib/cloud.js also takes from pyezvizapi the EZVIZ cloud login flow (the v5 MD5
+and v6 RSA forms, the region redirect and the login form fields), the device
+feature-switch ids (DeviceSwitchType), and the cloud switchStatus REST
+endpoints (/v3/devices/.../switchStatus and the legacy
+/api/device/switchStatus). It is a from-scratch JavaScript implementation
+written from that protocol description, not a copy of the Python code, and it
+talks to EZVIZ's cloud, not to the camera on the LAN.
+
 ------------------------------------------------------------------------------
 Trademarks
 ------------------------------------------------------------------------------

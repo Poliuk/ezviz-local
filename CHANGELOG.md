@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `cloud`: a new module to toggle device feature switches (privacy, the status
+  LED, sleep, infrared) through the EZVIZ account, since the camera does not
+  expose them on the LAN. Adds `cloud.cloudLogin()`, `cloud.setSwitch()`,
+  `cloud.setDeviceSwitch()` and the `DeviceSwitchType` ids. Cloud-only, and not
+  yet verified against real hardware; see docs/CLOUD.md.
+
 ## 0.1.1
 
 - `move()`: the run time now counts from when the start frame is written, not
