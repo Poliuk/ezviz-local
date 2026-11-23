@@ -9,7 +9,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
-const { cloudLogin, setSwitch, setDeviceSwitch, DeviceSwitchType, EzvizCloudError, featureCode } = require('../lib/cloud');
+const {
+  cloudLogin,
+  setSwitch,
+  setDeviceSwitch,
+  getDevices,
+  getSwitchStates,
+  switchName,
+  DeviceSwitchType,
+  EzvizCloudError,
+  featureCode,
+} = require('../lib/cloud');
 
 const md5hex = (s) => crypto.createHash('md5').update(String(s), 'utf8').digest('hex');
 
@@ -190,4 +200,51 @@ test('DeviceSwitchType has the expected ids and featureCode is 32 hex', () => {
   assert.equal(DeviceSwitchType.SLEEP, 21);
   assert.match(featureCode(), /^[0-9a-f]{32}$/);
   assert.ok(EzvizCloudError);
+});
+
+// --------------------------------------------------------------- read state
+
+const PAGE = (switchSection) => ({ status: 200, json: { meta: { code: 200 }, SWITCH: switchSection }, text: '' });
+
+test('getSwitchStates: reads the SWITCH section into a {type: boolean} map', async () => {
+  const request = recorder((o) => {
+    assert.equal(o.method, 'GET');
+    assert.match(o.url, /\/v3\/userdevices\/v1\/resources\/pagelist\?/);
+    assert.match(o.url, /filter=/);
+    assert.equal(o.headers.sessionId, 'SID');
+    return PAGE({
+      BK0341402: [
+        { type: 7, enable: 1, channelNo: 0 },
+        { type: 3, enable: 0, channelNo: 0 },
+        { type: 10, enable: 1, channelNo: 0 },
+      ],
+    });
+  });
+  const states = await getSwitchStates({ session: SESSION, serial: 'BK0341402', request });
+  assert.deepEqual(states, { 7: true, 3: false, 10: true });
+  assert.equal(states[DeviceSwitchType.PRIVACY], true);
+  assert.equal(states[DeviceSwitchType.LIGHT], false);
+});
+
+test('getSwitchStates: unknown serial -> not_found', async () => {
+  const request = recorder(() => PAGE({ OTHER: [{ type: 3, enable: 1, channelNo: 0 }] }));
+  await assert.rejects(getSwitchStates({ session: SESSION, serial: 'BK0341402', request }), { code: 'not_found' });
+});
+
+test('getDevices / getSwitchStates: non-200 device list -> request_failed', async () => {
+  const request = recorder(() => ({ status: 200, json: { meta: { code: 1013 } }, text: '' }));
+  await assert.rejects(getDevices({ session: SESSION, request }), { code: 'request_failed' });
+  await assert.rejects(getSwitchStates({ session: SESSION, serial: 'X', request }), { code: 'request_failed' });
+});
+
+test('getSwitchStates: validates its arguments', async () => {
+  const request = recorder(() => assert.fail('must not send anything'));
+  await assert.rejects(getSwitchStates({ serial: 'X', request }), { code: 'invalid_argument' });
+  await assert.rejects(getSwitchStates({ session: SESSION, request }), { code: 'invalid_argument' });
+});
+
+test('switchName maps ids back to names', () => {
+  assert.equal(switchName(3), 'LIGHT');
+  assert.equal(switchName(7), 'PRIVACY');
+  assert.equal(switchName(99999), null);
 });
