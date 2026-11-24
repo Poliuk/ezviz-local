@@ -2,11 +2,19 @@
 
 ## Unreleased
 
-- `cloud`: a new module to toggle device feature switches (privacy, the status
-  LED, sleep, infrared) through the EZVIZ account, since the camera does not
-  expose them on the LAN. Adds `cloud.cloudLogin()`, `cloud.setSwitch()`,
-  `cloud.setDeviceSwitch()` and the `DeviceSwitchType` ids. Cloud-only, and not
-  yet verified against real hardware; see docs/CLOUD.md.
+- `cloud`: a new module to control the device features an EZVIZ camera does not
+  expose on the LAN, through the EZVIZ account session. Login (`cloudLogin`,
+  `setDeviceSwitch`), the feature switches (`setSwitch` with the
+  `DeviceSwitchType` ids), and reading current state (`getDevices`,
+  `getSwitchStates`, `getDefenceMode`, `getSensitivity`, `getDevConfig`). Plus
+  session-only setters — `setDefenceMode`, `setCameraDefence`, `setDoNotDisturb`,
+  `setNightVision`, `setDisplayMode`, `setOsd`, `setMirror`, `setDetectionType`,
+  `setSensitivity`, `setIntelligentApp`, `setAlarmSound`,
+  `setFloodlightBrightness` and a generic `setDevConfig` — and the destructive
+  `soundSiren`, `reboot`, `upgradeFirmware` and `remoteUnlock` (gate these behind
+  a confirm). Login, the state read and the `LIGHT` switch are verified against a
+  real account; the other setters are traced from pyezvizapi and covered by
+  mocked tests only. Cloud-only; see docs/CLOUD.md.
 
 ## 0.1.1
 
