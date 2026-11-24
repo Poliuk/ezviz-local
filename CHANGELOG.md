@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - `cloud`: a new module to control the device features an EZVIZ camera does not
   expose on the LAN, through the EZVIZ account session. Login (`cloudLogin`,
@@ -12,9 +12,13 @@
   `setSensitivity`, `setIntelligentApp`, `setAlarmSound`,
   `setFloodlightBrightness` and a generic `setDevConfig` — and the destructive
   `soundSiren`, `reboot`, `upgradeFirmware` and `remoteUnlock` (gate these behind
-  a confirm). Login, the state read and the `LIGHT` switch are verified against a
-  real account; the other setters are traced from pyezvizapi and covered by
-  mocked tests only. Cloud-only; see docs/CLOUD.md.
+  a confirm). Login, the reads and twelve setters (both arm modes,
+  do-not-disturb, night vision, display mode, detection type, sensitivity,
+  alarm sound, floodlight brightness, the generic devconfig, mirror and reboot)
+  are verified against a real EZVIZ C6N; `setOsd`, `setIntelligentApp` and
+  `soundSiren` are accepted by the API but have no effect on that model, and
+  `upgradeFirmware` / `remoteUnlock` are untested. Cloud-only; see
+  docs/CLOUD.md.
 
 ## 0.1.1
 

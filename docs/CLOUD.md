@@ -130,13 +130,44 @@ There is no SD-card format / wipe in the cloud API, so this module has none.
 
 ## Status
 
-Verified against a real account and camera: `cloudLogin`, the state read
-(`getDevices` / `getSwitchStates`), and `setSwitch` both ways on a `LIGHT`
-toggle (set, read back, restored). The other setters are exercised only by
-mocked tests (`test/cloud.test.js`) — their request shapes were traced from
-pyezvizapi but not yet confirmed on hardware. Try each against a camera you own
-before relying on it, and expect to adjust the channel or meta-code handling if
-EZVIZ's API differs for your region.
+Verified against a real EZVIZ account and a C6N camera on 2026-11-24.
+
+Reads and `setSwitch`: `cloudLogin`, `getDevices`, `getSwitchStates`,
+`getDefenceMode`, `getSensitivity`, `getDevConfig`, and `setSwitch` (a `LIGHT`
+toggle, set and restored).
+
+Setters verified on hardware — each set to a new value, confirmed by read-back
+(or, for `mirror`, by eye), then restored:
+
+- `setDefenceMode`, `setCameraDefence`, `setDoNotDisturb`, `setNightVision`,
+  `setDisplayMode`, `setDetectionType`, `setSensitivity`, `setAlarmSound`,
+  `setFloodlightBrightness`, `setDevConfig`.
+- `setMirror` — flips the image; `CENTER` is a toggle (apply twice to return).
+- `reboot` — the live feed dropped and reconnected.
+
+Accepted by the API but with no effect on this C6N (other models may differ):
+
+- `setOsd` — meta `2031`, "device does not support this capability"; no
+  editable OSD text on this model.
+- `setIntelligentApp` — meta `-100`; on the C6N, human detection is the
+  `HUMAN_INTELLIGENT_DETECTION` switch (type 200) via `setSwitch`, not this
+  intelligent-app load endpoint.
+- `soundSiren` — `enable:1` returns ok but is silent (no siren speaker on this
+  model); it is a one-shot alarm event and `enable:0` is rejected.
+
+Not tested on hardware: `upgradeFirmware`, `remoteUnlock`.
+
+Two behaviours to design a UI around:
+
+- `getDevConfig` reads lag writes by a few seconds (EZVIZ-side caching); the
+  write response (meta 200) is authoritative, so poll for a settled read rather
+  than trusting an immediate read-back.
+- These endpoints use `channel` 1 on the C6N (the sensitivity read reports
+  channel 1), matching the setters' default; `setSwitch` uses 0.
+
+The mocked tests in `test/cloud.test.js` still pin every request shape; try a
+setter against a camera you own before relying on it, since EZVIZ's capabilities
+and meta codes vary by model and region.
 
 The switch ids, the login flow and every cloud request shape here were traced
 from [pyEzvizApi](https://github.com/RenierM26/pyEzvizApi); see

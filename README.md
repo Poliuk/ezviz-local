@@ -105,23 +105,35 @@ retransmitted after your stop. A
 `control`-phase error with `err.frameSent === false` means the frame was never
 written.
 
-## Cloud: feature switches
+## Cloud: feature switches and settings
 
-One thing an EZVIZ C6N will not do on the LAN is toggle its *feature switches* —
-privacy, the status LED, sleep, infrared. Those go through EZVIZ's cloud, so the
-`cloud` module is the one part of this package that uses your EZVIZ account
+An EZVIZ C6N won't change its *feature switches* (privacy, the status LED, sleep,
+infrared) or most of its settings over the LAN — those go through EZVIZ's cloud.
+The `cloud` module is the one part of this package that uses your EZVIZ account
 rather than the local network.
 
 ```js
 const { cloud } = require('ezviz-local');
 
 const session = await cloud.cloudLogin({ account: 'you@example.com', password: process.env.EZVIZ_ACCOUNT_PASSWORD });
+
+// Toggle a feature switch:
 await cloud.setSwitch({ session, serial: 'YOURSERIAL', type: 'PRIVACY', enable: true });
+
+// Or change a setting:
+await cloud.setNightVision({ session, serial: 'YOURSERIAL', mode: 'B_W', luminance: 100 });
 ```
 
-It needs the EZVIZ **account** password (not the camera's verification code),
-and it changes the camera over the internet. It is not verified against real
-hardware yet — see [docs/CLOUD.md](docs/CLOUD.md).
+It needs the EZVIZ **account** password (not the camera's verification code), and
+it changes the camera over the internet. Beyond the switches it covers arm mode,
+per-camera arm, do-not-disturb, night vision, display mode, detection type and
+sensitivity, alarm sound, floodlight brightness, a generic devconfig setter,
+mirror and device reboot, plus the matching reads.
+
+Verified against a real EZVIZ C6N (login, the reads, and twelve setters); a few
+calls are accepted by the API but do nothing on that model, and firmware upgrade
+and smart-lock unlock are untested. See [docs/CLOUD.md](docs/CLOUD.md) for the
+per-call status and the destructive-operation warnings.
 
 ## Video and talking in a browser
 
@@ -144,7 +156,7 @@ yourself reach it.
 - [PROTOCOL.md](docs/PROTOCOL.md): the command-port login and the PTZ frame
 - [TALKBACK.md](docs/TALKBACK.md): the ONVIF backchannel, and how go2rtc uses it
 - [GO2RTC-PITFALLS.md](docs/GO2RTC-PITFALLS.md): putting go2rtc behind your own auth
-- [CLOUD.md](docs/CLOUD.md): toggling feature switches (privacy, LED, sleep, IR) through the EZVIZ account
+- [CLOUD.md](docs/CLOUD.md): feature switches and settings (privacy, night vision, detection, alarm, reboot, …) through the EZVIZ account
 
 ## Credits
 
